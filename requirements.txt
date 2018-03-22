@@ -1,0 +1,8 @@
+argparse
+biopython
+datetime
+gffutils
+numpy
+pandas
+pronto
+requests

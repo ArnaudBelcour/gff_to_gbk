@@ -15,6 +15,8 @@ Informations need a good formating:
 gene ID should be correctly written (like XXX_001 and no XXX_1 if you got more thant 100 genes).
 Currently when there is multiple GO terms/InterPro/EC the script split them when they are separated by ";" or by "," like GO:0006979;GO:0020037;GO:0004601,
 if you use another separator add to the re.split(',|;').
+For the gff file ensure that the element start position is at least 1.
+If it's 0 gffutils will return an error (source : https://github.com/daler/gffutils/issues/104).
 
 Other informations can be added by adding a dictionary with gene ID as key and the information
 as value and adapt the condition used for the others annotations (EC, Interpro, Go term).
@@ -28,10 +30,12 @@ import argparse
 import datetime
 import gffutils
 import numpy as np
+import os
 import pandas as pa
 import pronto
 import re
 import requests
+import shutil
 
 from Bio import SeqFeature as sf
 from Bio import SeqIO
@@ -45,10 +49,27 @@ parser = argparse.ArgumentParser(prog = "gbk_creator_from_gff.py")
 parser.add_argument("-fg", "--fgen", dest = "genome_fasta", metavar = "FILE", help = "contig fasta file", required = True)
 parser.add_argument("-fp", "--fprot", dest = "prot_fasta", metavar = "FILE", help = "protein fasta file", required = True)
 parser.add_argument("-a", "--annot", dest = "annot_table", metavar = "FILE", help = "annotation tsv file", required = True)
-parser.add_argument("-g", "--gff", dest = "gff_file", metavar = "FILE", help = "gff file", required = True)
+parser.add_argument("-g", "--gff", dest = "gff_file_folder", metavar = "FILE or FOLDER", help = "gff file or folder containing multiple gff", required = True)
 parser.add_argument("-s", "--speciesname", dest = "species_name", metavar = "STRING", help = "species scientific name", required = True)
 parser.add_argument("-o", "--output", dest = "gbk_out", metavar = "FILE", help = "output file", default = "mygbk.gbk")
 args = parser.parse_args()
+
+def merging_mini_gff(gff_folder):
+    """
+    Merge multiple gff files into one.
+    Return the path to the merged file.
+    """
+    mini_gff_path = os.path.dirname(os.path.realpath(os.listdir(gff_folder)[0])) + "/" + gff_folder + "/"
+    gff_merged_path = mini_gff_path + 'merged_gff.gff'
+
+    with open(gff_merged_path, 'w') as gff_file_merged:
+        gff_files = os.listdir(gff_folder)
+        gff_files.remove('merged_gff.gff')
+        for mini_gff in gff_files:
+            with open(mini_gff_path + mini_gff, 'rb') as mini_gff_file:
+                shutil.copyfileobj(mini_gff_file, gff_file_merged)
+
+    return gff_merged_path
 
 def create_GO_dataframes():
     """
@@ -422,11 +443,18 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
 
         seq_objects.append(record)
 
-    # Creat Genbank with the list of SeqRecord.
+    # Create Genbank with the list of SeqRecord.
     SeqIO.write(seq_objects, gbk_out, 'genbank')
 
 def main(genome_fasta=args.genome_fasta, prot_fasta=args.prot_fasta, annot_table=args.annot_table,
-                gff_file=args.gff_file, species_name=args.species_name, gbk_out=args.gbk_out):
+                gff_file_folder=args.gff_file_folder, species_name=args.species_name, gbk_out=args.gbk_out):
+
+    # Check if gff is a file or is multiple files in a folder.
+    # If it's multiple files, it wil merge them in one.
+    if os.path.isfile(gff_file_folder):
+        gff_file = gff_file_folder
+    if not os.path.isfile(gff_file_folder):
+        gff_file = merging_mini_gff(gff_file_folder)
 
     gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gbk_out)
 

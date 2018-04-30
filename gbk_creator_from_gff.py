@@ -430,7 +430,7 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
                     if id_gene in annot_IPRs:
                         gene_iprs = re.split(';|,', annot_IPRs[id_gene])
                         if gene_iprs != [""]:
-                            new_feature_cds.qualifiers['db_xref'] = ["Pfam:"+interpro for interpro in gene_iprs]
+                            new_feature_cds.qualifiers['db_xref'] = ["InterPro:"+interpro for interpro in gene_iprs]
 
                     # Add EC annotation.
                     if id_gene in annot_ECs:

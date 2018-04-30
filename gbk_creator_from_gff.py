@@ -169,7 +169,7 @@ def contig_info(contig_id, contig_seq, species_informations):
     """
     Create contig information from species_informations dictionary and contig id and contig seq.
     """
-    record = SeqRecord(contig_seq[contig_id], id=contig_id, name=contig_id,
+    record = SeqRecord(contig_seq, id=contig_id, name=contig_id,
                     description=species_informations['description'])
 
     record.seq.alphabet = IUPAC.ambiguous_dna
@@ -190,7 +190,7 @@ def contig_info(contig_id, contig_seq, species_informations):
         record.annotations['source'] = species_informations['source']
 
     new_feature_source = sf.SeqFeature(sf.FeatureLocation(1-1,
-                                                        len(contig_seq[contig_id])),
+                                                        len(contig_seq)),
                                                         type="source")
     new_feature_source.qualifiers['scaffold'] = contig_id
     if 'isolate' in species_informations:
@@ -280,19 +280,18 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
 
     print('Formatting fasta and annotation file')
     # Dictionary with scaffold/chromosome id as key and sequence as value.
-    contig_seq = OrderedDict()
+    contig_seqs = OrderedDict()
 
     for record in SeqIO.parse(genome_fasta, "fasta"):
         id_contig = record.id
-        contig_seq[id_contig] = record.seq
+        contig_seqs[id_contig] = record.seq
 
 
     # Dictionary with gene id as key and protein sequence as value.
     gene_protein_seq = {}
 
     for record in SeqIO.parse(prot_fasta, "fasta"):
-        gene_protein_seq[record.id[:length_gene_id]] = record.seq
-
+        gene_protein_seq[record.id] = record.seq
 
     # Create a taxonomy dictionary querying the EBI.
     species_informations = create_taxonomic_data(species_name)
@@ -303,7 +302,6 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
 
     gene_column, go_column, ec_column, ipr_column = find_column_of_interest(mapping_data)
 
-    mapping_data[gene_column] = [gene[:length_gene_id] for gene in mapping_data[gene_column]]
     mapping_data.set_index(gene_column, inplace=True)
     # Dictionary with gene id as key and GO terms/Interpro/EC as value.
     annot_GOs = mapping_data[go_column].to_dict()
@@ -335,7 +333,7 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
         end_position = exon.end
         strand = strand_change(exon.strand)
 
-        gene_id = exon.id.replace('exon:', '')[:length_gene_id]
+        gene_id = exon.id.replace('exon:', '')[:-2]
         temporary_datas.append({'exon_id': exon.id, 'gene_id': gene_id,
                             'start': start_position, 'end':end_position, 'strand': strand})
 
@@ -349,14 +347,13 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
     # Iterate through each contig.
     # Then iterate through gene and throug RNA linked with the gene.
     # Then look if protein informations are available.
-    for contig in sorted(contig_seq):
+    for contig_id in sorted(contig_seqs):
         # Data for each contig.
-        contig_id = contig
-        record = contig_info(contig_id, contig_seq, species_informations)
+        record = contig_info(contig_id, contig_seqs[contig_id], species_informations)
         for gene in gff_database.features_of_type('gene'):
             gene_contig = gene.chrom
             if gene_contig == contig_id:
-                id_gene = gene.id.replace('gene:', '').replace('evm.TU.', '')
+                id_gene = gene.id
                 start_position = gene.start -1
                 end_position = gene.end
                 strand = strand_change(gene.strand)
@@ -376,13 +373,18 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
 
                 record = search_and_add_RNA(gff_database, gene_informations, record, 'ncRNA')
 
+                record = search_and_add_RNA(gff_database, gene_informations, record, 'lncRNA')
+
                 # Create CDS using exons, if no exon use gene information
                 location_exons = []
 
-                if id_gene in gene_protein_seq:
+                # Use parent mRNA in gff to find CDS.
+                # With this we take the isoform of gene.
+                for mrna in gff_database.children(gene, featuretype="mRNA", order_by='start'):
+                    mrna_id = mrna.id
                     # Select exon corresponding to the gene.
                     # Then iterate for each exon and extract information.
-                    df_temp = df_exons[df_exons['gene_id'] == id_gene]
+                    df_temp = df_exons[df_exons['gene_id'] == mrna_id]
                     for _, row in df_temp.iterrows():
                         new_feature_location_exons = sf.FeatureLocation(row['start'],
                                                                         row['end'],
@@ -398,12 +400,12 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
                                                                             strand),
                                                                         type="CDS")
 
-                    new_feature_cds.qualifiers['translation'] = gene_protein_seq[id_gene]
+                    new_feature_cds.qualifiers['translation'] = gene_protein_seq[mrna_id]
                     new_feature_cds.qualifiers['locus_tag'] = id_gene
 
                     # Add GO annotation according to the namespace.
-                    if id_gene in annot_GOs:
-                        gene_gos = re.split(';|,', annot_GOs[id_gene])
+                    if mrna_id in annot_GOs:
+                        gene_gos = re.split(';|,', annot_GOs[mrna_id])
                         if gene_gos != [""]:
                             go_components = []
                             go_functions = []
@@ -427,14 +429,14 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
                             new_feature_cds.qualifiers['go_process'] = go_process
 
                     # Add InterPro annotation.
-                    if id_gene in annot_IPRs:
-                        gene_iprs = re.split(';|,', annot_IPRs[id_gene])
+                    if mrna_id in annot_IPRs:
+                        gene_iprs = re.split(';|,', annot_IPRs[mrna_id])
                         if gene_iprs != [""]:
                             new_feature_cds.qualifiers['db_xref'] = ["InterPro:"+interpro for interpro in gene_iprs]
 
                     # Add EC annotation.
-                    if id_gene in annot_ECs:
-                        gene_ecs = re.split(';|,', annot_ECs[id_gene])
+                    if mrna_id in annot_ECs:
+                        gene_ecs = re.split(';|,', annot_ECs[mrna_id])
                         if gene_ecs != [""]:
                             new_feature_cds.qualifiers['EC_number'] = [ec.replace('ec:', '') for ec in gene_ecs]
 

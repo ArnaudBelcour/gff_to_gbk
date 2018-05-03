@@ -243,6 +243,40 @@ def search_and_add_RNA(gff_database, gene_informations, record, type_RNA):
         record.features.append(new_feature_RNA)
     return record
 
+def search_and_add_pseudogene(gff_database, gene, record, df_exons, gene_protein_seq):
+    """
+    Search in the gff_database if the gene is a pseudogene.
+    Add it to the record.
+    """
+    location_exons = []
+
+    for pseudogene in gff_database.children(gene, featuretype="pseudogene", order_by='start'):
+        # Select exon corresponding to the gene.
+        # Then iterate for each exon and extract information.
+        df_temp = df_exons[df_exons['gene_id'] == pseudogene.id]
+        for _, row in df_temp.iterrows():
+            new_feature_location_exons = sf.FeatureLocation(row['start'],
+                                                            row['end'],
+                                                            row['strand'])
+            location_exons.append(new_feature_location_exons)
+        if location_exons and len(location_exons)>=2:
+            exon_compound_locations = sf.CompoundLocation(location_exons, operator='join')
+
+            new_feature_cds = sf.SeqFeature(exon_compound_locations, type='CDS')
+        else:
+            start_position = gene.start -1
+            end_position = gene.end
+            strand = strand_change(gene.strand)
+            new_feature_cds = sf.SeqFeature(sf.FeatureLocation(start_position,
+                                                                end_position,
+                                                                strand),
+                                                            type="CDS")
+
+        new_feature_cds.qualifiers['translation'] = gene_protein_seq[pseudogene.id]
+        new_feature_cds.qualifiers['locus_tag'] = gene.id
+        new_feature_cds.qualifiers['pseudo'] = None
+        record.features.append(new_feature_cds)
+    return record
 
 def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gbk_out):
     """
@@ -365,7 +399,7 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
                 # Add gene information to contig record.
                 record.features.append(new_feature_gene)
 
-                # Search and add RNAs
+                # Search and add RNAs.
                 gene_informations = [gene, id_gene, start_position, end_position, strand]
                 record = search_and_add_RNA(gff_database, gene_informations, record, 'mRNA')
 
@@ -374,6 +408,9 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
                 record = search_and_add_RNA(gff_database, gene_informations, record, 'ncRNA')
 
                 record = search_and_add_RNA(gff_database, gene_informations, record, 'lncRNA')
+
+                # Search for pseudogene and add them.
+                record = search_and_add_pseudogene(gff_database, gene, record, df_exons, gene_protein_seq)
 
                 # Create CDS using exons, if no exon use gene information
                 location_exons = []

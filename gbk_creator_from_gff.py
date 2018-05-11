@@ -139,7 +139,7 @@ def find_column_of_interest(df):
     gene_column = columns[0]
 
     go_number_expression = r"[FPC]?:?GO[:_][\d]{7}"
-    ec_expression = r"[Ee][Cc]:[\d]{1}[\.]{1}[\d]{,2}[\.]{,1}[\d]{,2}[\.]{,1}[\d]{,3}"
+    ec_expression = r"[Ee]?[Cc]?:?[\d]{1}[\.]{1}[\d]{,2}[\.]{,1}[\d]{,2}[\.]{,1}[\d]{,3}"
     ipr_expression = r"IPR[\d]{6}"
     go_number_columns = {}
     ec_columns = {}

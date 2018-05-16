@@ -121,9 +121,10 @@ def create_taxonomic_data(species_name):
         else:
             species_informations[temp_species_information] = temp_species_informations[temp_species_information]
 
-    species_informations['description'] = species_name + ' genome'
-    species_informations['organism'] = species_name
-    species_informations['keywords'] = [species_name]
+    compatible_species_name = species_name.replace('/', '_')
+    species_informations['description'] = compatible_species_name + ' genome'
+    species_informations['organism'] = compatible_species_name
+    species_informations['keywords'] = [compatible_species_name]
 
     return species_informations
 

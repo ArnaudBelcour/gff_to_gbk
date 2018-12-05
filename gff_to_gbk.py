@@ -45,15 +45,6 @@ from Bio.SeqRecord import SeqRecord
 from collections import OrderedDict
 
 
-parser = argparse.ArgumentParser(prog = "gbk_creator_from_gff.py")
-parser.add_argument("-fg", "--fgen", dest = "genome_fasta", metavar = "FILE", help = "contig fasta file", required = True)
-parser.add_argument("-fp", "--fprot", dest = "prot_fasta", metavar = "FILE", help = "protein fasta file", required = True)
-parser.add_argument("-a", "--annot", dest = "annot_table", metavar = "FILE", help = "annotation tsv file", required = True)
-parser.add_argument("-g", "--gff", dest = "gff_file_folder", metavar = "FILE or FOLDER", help = "gff file or folder containing multiple gff", required = True)
-parser.add_argument("-s", "--speciesname", dest = "species_name", metavar = "STRING", help = "species scientific name", required = True)
-parser.add_argument("-o", "--output", dest = "gbk_out", metavar = "FILE", help = "output file", default = "mygbk.gbk")
-args = parser.parse_args()
-
 def merging_mini_gff(gff_folder):
     """
     Merge multiple gff files into one.
@@ -211,17 +202,27 @@ def contig_info(contig_id, contig_seq, species_informations):
 
     return record
 
-def strand_change(str_strand):
+def strand_change(input_strand):
     """
     The input is strand in str ('-', '+') modify it to be a strand in int (-1, +1) to 
     be compatible with SeqIO strand reading.
     """
-    if str_strand == '-':
-        int_strand = -1
-    elif str_strand == '+':
-        int_strand = +1
+    if isinstance(input_strand, str):
+        if input_strand == '-':
+            new_strand = -1
+        elif input_strand == '+':
+            new_strand = +1
+        if input_strand == '.':
+            new_strand = None
+        elif input_strand == '?':
+            new_strand = 0
+    elif isinstance(input_strand, int):
+        if input_strand == -1:
+            new_strand = input_strand
+        elif input_strand == +1:
+            new_strand = input_strand
 
-    return int_strand
+    return new_strand
 
 def search_and_add_RNA(gff_database, gene_informations, record, type_RNA):
     """
@@ -486,8 +487,7 @@ def gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gb
     # Create Genbank with the list of SeqRecord.
     SeqIO.write(seq_objects, gbk_out, 'genbank')
 
-def main(genome_fasta=args.genome_fasta, prot_fasta=args.prot_fasta, annot_table=args.annot_table,
-                gff_file_folder=args.gff_file_folder, species_name=args.species_name, gbk_out=args.gbk_out):
+def main(genome_fasta, prot_fasta, annot_table, gff_file_folder, species_name, gbk_out):
 
     # Check if gff is a file or is multiple files in a folder.
     # If it's multiple files, it wil merge them in one.
@@ -498,5 +498,18 @@ def main(genome_fasta=args.genome_fasta, prot_fasta=args.prot_fasta, annot_table
 
     gff_to_gbk(genome_fasta, prot_fasta, annot_table, gff_file, species_name, gbk_out)
 
+def run():
+    parser = argparse.ArgumentParser(prog = "gbk_creator_from_gff.py")
+    parser.add_argument("-fg", "--fgen", dest = "genome_fasta", metavar = "FILE", help = "contig fasta file", required = True)
+    parser.add_argument("-fp", "--fprot", dest = "prot_fasta", metavar = "FILE", help = "protein fasta file", required = True)
+    parser.add_argument("-a", "--annot", dest = "annot_table", metavar = "FILE", help = "annotation tsv file", required = True)
+    parser.add_argument("-g", "--gff", dest = "gff_file_folder", metavar = "FILE or FOLDER", help = "gff file or folder containing multiple gff", required = True)
+    parser.add_argument("-s", "--speciesname", dest = "species_name", metavar = "STRING", help = "species scientific name", required = True)
+    parser.add_argument("-o", "--output", dest = "gbk_out", metavar = "FILE", help = "output file", default = "mygbk.gbk")
+    args = parser.parse_args()
+
+    main(genome_fasta=args.genome_fasta, prot_fasta=args.prot_fasta, annot_table=args.annot_table,
+                gff_file_folder=args.gff_file_folder, species_name=args.species_name, gbk_out=args.gbk_out)
+
 if __name__ == '__main__':
-	main()
+	run()

@@ -142,15 +142,6 @@ def gff_to_gbk(genome_fasta, prot_fasta, gff_file, species_name, gbk_out):
     # ':memory:' ask gffutils to keep database in memory instead of writting in a file.
     gff_database = gffutils.create_db(gff_file, ':memory:', force=True, keep_order=True, merge_strategy='merge', sort_attribute_values=True)
 
-    # Length of your gene ID.
-    # Catch it in the GFF database.
-    # It's pretty dumb as we go into a loop for one information.
-    # But I don't find another way to catch the length of gene_id.
-    length_gene_id = 0
-
-    for gene in gff_database.features_of_type('gene'):
-        length_gene_id = len(gene.id.replace('gene:', ''))
-        break
 
     # Get the longest contig ID to check if all contig IDs have the
     # same length, if not add 0 (at the supposed position of the number).
@@ -167,7 +158,6 @@ def gff_to_gbk(genome_fasta, prot_fasta, gff_file, species_name, gbk_out):
     for record in SeqIO.parse(genome_fasta, "fasta"):
         id_contig = record.id
         contig_seqs[id_contig] = record.seq
-
 
     # Dictionary with gene id as key and protein sequence as value.
     gene_protein_seq = {}
@@ -206,7 +196,8 @@ def gff_to_gbk(genome_fasta, prot_fasta, gff_file, species_name, gbk_out):
                                                                             end_position,
                                                                             strand),
                                                                             type="gene")
-                        new_feature_gene.qualifiers['locus_tag'] = id_gene
+                        new_feature_gene.qualifiers['locus_tag'] = feature_label
+                        new_feature_gene.qualifiers['old_locus_tag'] = id_gene
                         new_feature_gene.qualifiers['gene'] = feature_label
                         # Add gene information to contig record.
                         record.features.append(new_feature_gene)
@@ -253,6 +244,7 @@ def gff_to_gbk(genome_fasta, prot_fasta, gff_file, species_name, gbk_out):
                                                                         strand),
                                                                         type=feature)
                     new_feature.qualifiers['locus_tag'] = feature_label
+                    new_feature.qualifiers['old_locus_tag'] = id_feature
                     if 'product' in data_feature.attributes:
                         new_feature.qualifiers['note'] = data_feature.attributes['product']
                     record.features.append(new_feature)

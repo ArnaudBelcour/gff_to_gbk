@@ -4,6 +4,10 @@
 """
 Description:
 Using two fasta files (genome and proteome) and the functional GFF from an IMG run create a Genbank file.
+Use:
+    -*_contigs.fna (-fg)
+    -*_proteins.faa (-fp)
+    -*_functional_annotation.gff (-g)
 
 Usage:
 gbk_creator_from_gff.py -fg <Genome fasta file> -fp <Protein Fasta file> -g <GFF file> -s <Species name> -o <GBK Output file name>
@@ -223,7 +227,7 @@ def gff_to_gbk(genome_fasta, prot_fasta, gff_file, species_name, gbk_out):
                         new_feature_cds.qualifiers['gene'] = feature_label
 
                         if 'product' in gene.attributes:
-                            new_feature_cds.qualifiers['note'] = gene.attributes['product']
+                            new_feature_cds.qualifiers['product'] = gene.attributes['product']
                         if 'ec_number' in gene.attributes:
                             new_feature_cds.qualifiers['EC_number'] = [ec.replace('EC:', '') for ec in gene.attributes['ec_number']]
 
@@ -246,7 +250,7 @@ def gff_to_gbk(genome_fasta, prot_fasta, gff_file, species_name, gbk_out):
                     new_feature.qualifiers['locus_tag'] = feature_label
                     new_feature.qualifiers['old_locus_tag'] = id_feature
                     if 'product' in data_feature.attributes:
-                        new_feature.qualifiers['note'] = data_feature.attributes['product']
+                        new_feature.qualifiers['product'] = data_feature.attributes['product']
                     record.features.append(new_feature)
                     feature_number += 1
 

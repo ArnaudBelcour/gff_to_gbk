@@ -186,71 +186,72 @@ def gff_to_gbk(genome_fasta, prot_fasta, gff_file, species_name, gbk_out):
         # Data for each contig.
         record = contig_info(contig_id, contig_seqs[contig_id], species_informations)
         feature_number = 1
-        for feature in gff_database.featuretypes():
-            if feature == 'CDS':
-                for gene in gff_database.features_of_type('CDS'):
+        # Parse all the features in the GFF and iterates through them.
+        for feature in gff_database.features_of_type(tuple(gff_database.featuretypes())):
+            if feature.featuretype == 'CDS':
+                gene = feature
+                gene_contig = gene.chrom
+                if gene_contig == contig_id:
                     feature_label = species_name[:4] + '_' + str(contig_number).zfill(len(str(len(contig_seqs)))) + '_' +  str(feature_number).zfill(len(str(gff_database.count_features_of_type())))
-                    gene_contig = gene.chrom
-                    if gene_contig == contig_id:
-                        id_gene = gene.id
-                        start_position = gene.start -1
-                        end_position = gene.end
-                        strand = strand_change(gene.strand)
-                        new_feature_gene = sf.SeqFeature(sf.FeatureLocation(start_position,
-                                                                            end_position,
-                                                                            strand),
-                                                                            type="gene")
-                        new_feature_gene.qualifiers['locus_tag'] = feature_label
-                        new_feature_gene.qualifiers['old_locus_tag'] = id_gene
-                        new_feature_gene.qualifiers['gene'] = feature_label
-                        # Add gene information to contig record.
-                        record.features.append(new_feature_gene)
+                    id_gene = gene.id
+                    start_position = gene.start -1
+                    end_position = gene.end
+                    strand = strand_change(gene.strand)
+                    new_feature_gene = sf.SeqFeature(sf.FeatureLocation(start_position,
+                                                                        end_position,
+                                                                        strand),
+                                                                        type="gene")
+                    new_feature_gene.qualifiers['locus_tag'] = feature_label
+                    new_feature_gene.qualifiers['old_locus_tag'] = id_gene
+                    new_feature_gene.qualifiers['gene'] = feature_label
+                    # Add gene information to contig record.
+                    record.features.append(new_feature_gene)
 
-                        # Create mRNA data.
-                        new_feature_mRNA = sf.SeqFeature(sf.FeatureLocation(start_position,
-                                                                            end_position,
-                                                                            strand),
-                                                                            type="mRNA")
-                        new_feature_mRNA.qualifiers['locus_tag'] = feature_label
-                        new_feature_mRNA.qualifiers['gene'] = feature_label
-                        # Add gene information to contig record.
-                        record.features.append(new_feature_mRNA)
+                    # Create mRNA data.
+                    new_feature_mRNA = sf.SeqFeature(sf.FeatureLocation(start_position,
+                                                                        end_position,
+                                                                        strand),
+                                                                        type="mRNA")
+                    new_feature_mRNA.qualifiers['locus_tag'] = feature_label
+                    new_feature_mRNA.qualifiers['gene'] = feature_label
+                    # Add gene information to contig record.
+                    record.features.append(new_feature_mRNA)
 
-                        # Create CDS and get annotations.
-                        new_feature_cds = sf.SeqFeature(sf.FeatureLocation(start_position,
-                                                                            end_position,
-                                                                            strand),
-                                                                        type="CDS")
+                    # Create CDS and get annotations.
+                    new_feature_cds = sf.SeqFeature(sf.FeatureLocation(start_position,
+                                                                        end_position,
+                                                                        strand),
+                                                                    type="CDS")
 
-                        new_feature_cds.qualifiers['translation'] = gene_protein_seq[id_gene]
-                        new_feature_cds.qualifiers['locus_tag'] = feature_label
-                        new_feature_cds.qualifiers['gene'] = feature_label
+                    new_feature_cds.qualifiers['translation'] = gene_protein_seq[id_gene]
+                    new_feature_cds.qualifiers['locus_tag'] = feature_label
+                    new_feature_cds.qualifiers['gene'] = feature_label
 
-                        if 'product' in gene.attributes:
-                            new_feature_cds.qualifiers['product'] = gene.attributes['product']
-                        if 'ec_number' in gene.attributes:
-                            new_feature_cds.qualifiers['EC_number'] = [ec.replace('EC:', '') for ec in gene.attributes['ec_number']]
+                    if 'product' in gene.attributes:
+                        new_feature_cds.qualifiers['product'] = gene.attributes['product']
+                    if 'ec_number' in gene.attributes:
+                        new_feature_cds.qualifiers['EC_number'] = [ec.replace('EC:', '') for ec in gene.attributes['ec_number']]
 
-                        # Add CDS information to contig record
-                        record.features.append(new_feature_cds)
-                        feature_number += 1
+                    # Add CDS information to contig record
+                    record.features.append(new_feature_cds)
+                    feature_number += 1
+
             else:
-                for data_feature in gff_database.features_of_type(feature):
+                feature_contig = feature.chrom
+                if feature_contig == contig_id:
                     feature_label = species_name[:4] + '_' + str(contig_number).zfill(len(str(len(contig_seqs)))) + '_' +  str(feature_number).zfill(len(str(gff_database.count_features_of_type())))
-                    feature_contig = data_feature.chrom
-                    if feature_contig == contig_id:
-                        id_feature = data_feature.id
-                        start_position = data_feature.start -1
-                        end_position = data_feature.end
-                        strand = strand_change(data_feature.strand)
+                    id_feature = feature.id
+                    start_position = feature.start -1
+                    end_position = feature.end
+                    strand = strand_change(feature.strand)
                     new_feature = sf.SeqFeature(sf.FeatureLocation(start_position,
                                                                         end_position,
                                                                         strand),
-                                                                        type=feature)
+                                                                        type=feature.featuretype)
                     new_feature.qualifiers['locus_tag'] = feature_label
                     new_feature.qualifiers['old_locus_tag'] = id_feature
-                    if 'product' in data_feature.attributes:
-                        new_feature.qualifiers['product'] = data_feature.attributes['product']
+                    if 'product' in feature.attributes:
+                        new_feature.qualifiers['product'] = feature.attributes['product']
                     record.features.append(new_feature)
                     feature_number += 1
 

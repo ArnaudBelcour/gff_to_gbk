@@ -73,7 +73,8 @@ def create_GO_dataframes():
     # For each GO terms look to the namespaces associated with them.
     go_namespaces = {}
     for go_term in go_ontology:
-        go_namespaces[go_term.id] = go_term.other['namespace'][0]
+        if 'GO:' in go_term:
+            go_namespaces[go_term] = go_ontology[go_term].name
     df_go_namespace = pa.DataFrame.from_dict(go_namespaces, orient='index')
     df_go_namespace.reset_index(inplace=True)
     df_go_namespace.columns = ['GO', 'namespace']
@@ -81,9 +82,9 @@ def create_GO_dataframes():
     # For each GO terms look if there is an alternative ID fo them.
     go_alt_ids = {}
     for go_term in go_ontology:
-        if 'alt_id' in go_term.other:
-            for go_alt in go_term.other['alt_id']:
-                go_alt_ids[go_alt] = go_term.id
+        if go_ontology[go_term].alternate_ids != frozenset():
+            for go_alt in go_ontology[go_term].alternate_ids:
+                go_alt_ids[go_alt] = go_term
     df_go_alternative = pa.DataFrame.from_dict(go_alt_ids, orient='index')
     df_go_alternative.reset_index(inplace=True)
     df_go_alternative.columns = ['GO', 'alternative_GO']

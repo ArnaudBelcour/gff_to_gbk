@@ -74,7 +74,7 @@ def create_GO_dataframes():
     go_namespaces = {}
     for go_term in go_ontology:
         if 'GO:' in go_term:
-            go_namespaces[go_term] = go_ontology[go_term].name
+            go_namespaces[go_term] = go_ontology[go_term].namespace
     df_go_namespace = pa.DataFrame.from_dict(go_namespaces, orient='index')
     df_go_namespace.reset_index(inplace=True)
     df_go_namespace.columns = ['GO', 'namespace']

@@ -39,10 +39,14 @@ import shutil
 
 from Bio import SeqFeature as sf
 from Bio import SeqIO
-from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from collections import OrderedDict
+
+try:
+    from Bio.Alphabet import IUPAC
+except ImportError:
+    IUPAC = None
 
 
 def merging_mini_gff(gff_folder):
@@ -163,9 +167,11 @@ def contig_info(contig_id, contig_seq, species_informations):
     Create contig information from species_informations dictionary and contig id and contig seq.
     """
     record = SeqRecord(contig_seq, id=contig_id, name=contig_id,
-                    description=species_informations['description'])
+                    description=species_informations['description'],
+                    annotations={"molecule_type": "DNA"})
 
-    record.seq.alphabet = IUPAC.ambiguous_dna
+    if IUPAC:
+        record.seq.alphabet = IUPAC.ambiguous_dna
     if 'data_file_division' in species_informations:
         record.annotations['data_file_division'] = species_informations['data_file_division']
     record.annotations['date'] = datetime.date.today().strftime('%d-%b-%Y').upper()
